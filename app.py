@@ -1,37 +1,29 @@
-import streamlit as st
-from sklearn.naive_bayes import MultinomialNB
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.pipeline import Pipeline
+import streamlit as st, joblib
+from pathlib import Path
 
-st.set_page_config(page_title="Bộ lọc Spam Email", page_icon="📧")
-st.title("📧 Bộ lọc Spam Email")
+st.set_page_config(page_title="Bộ lọc Spam (MLP)", page_icon="🧠")
+st.title("🧠 Bộ lọc Email Spam – MLP (nơ-ron nhẹ)")
 
-texts = [
-    "Win a free iPhone now!!! Click here",
-    "Limited offer! Cheap Viagra online",
-    "You have been selected to receive a prize, click",
-    "Meeting schedule for next week",
-    "Your invoice for October",
-    "Project update attached",
-]
-labels = [1, 1, 1, 0, 0, 0]
+MODEL_PATH = Path("model.pkl")
+if not MODEL_PATH.exists():
+    st.error("Không thấy model.pkl trong repo. Hãy upload model.pkl rồi reload ứng dụng.")
+    st.stop()
 
-model = Pipeline([
-    ("tfidf", TfidfVectorizer(ngram_range=(1,2))),
-    ("nb", MultinomialNB())
-])
-model.fit(texts, labels)
+model = joblib.load(MODEL_PATH)
 
-subject = st.text_input("Tiêu đề Email")
-body = st.text_area("Nội dung Email", height=180)
+col1, col2 = st.columns([3,1])
+with col1:
+    subject = st.text_input("Tiêu đề Email")
+body = st.text_area("Nội dung Email", height=200, placeholder="Dán nội dung email tiếng Việt...")
+
+threshold = st.slider("Ngưỡng phân loại (mặc định 0.5)", 0.1, 0.9, 0.5, 0.05)
 
 if st.button("Kiểm tra Spam"):
     text = (subject + " " + body).strip()
     if not text:
-        st.warning("Vui lòng nhập nội dung hoặc tiêu đề email.")
+        st.warning("Vui lòng nhập tiêu đề hoặc nội dung email.")
     else:
-        score = float(model.predict_proba([text])[0, 1])
-        label = "🚨 SPAM" if score >= 0.5 else "✅ Không phải SPAM"
-        st.success(f"Kết quả: {label}")
-        st.write(f"Độ tin cậy: {score:.2f}")
-
+        proba = float(model.predict_proba([text])[0, 1])
+        label = "🚨 SPAM" if proba >= threshold else "✅ Không phải SPAM"
+        st.markdown(f"**Kết quả:** {label}")
+        st.caption(f"Xác suất spam: {proba:.3f} • Ngưỡng: {threshold:.2f}")
